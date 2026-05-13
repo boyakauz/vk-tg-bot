@@ -120,7 +120,7 @@ async (context) => {
       context.text || '';
 
     // =====================
-    // ANTI FLOOD
+    // FLOOD
     // =====================
 
     const now = Date.now();
@@ -149,7 +149,7 @@ async (context) => {
     flood[userId] = now;
 
     // =====================
-    // DATABASE
+    // SAVE USER
     // =====================
 
     if (!users[userId]) {
@@ -292,7 +292,7 @@ https://www.sberbank.com/sms/pbpn?requisiteNumber=40820810440150216720
     };
 
     // =====================
-    // FILE
+    // PDF / DOC
     // =====================
 
     if (
@@ -304,14 +304,10 @@ https://www.sberbank.com/sms/pbpn?requisiteNumber=40820810440150216720
 
       const file = docs[0];
 
-      await tg.sendDocument(
+      await tg.sendMessage(
 
         TG_CHAT_ID,
-        { url: file.url },
 
-        {
-
-          caption:
 `📁 ЯНГИ FILE
 
 👤 VK ID: ${userId}
@@ -319,11 +315,13 @@ https://www.sberbank.com/sms/pbpn?requisiteNumber=40820810440150216720
 📝 TEXT:
 ${text || 'yoq'}
 
-📄 ${file.title}`,
+📄 FILE:
+${file.title}
 
-          ...tgButtons
+🔗 LINK:
+${file.url}`,
 
-        }
+        tgButtons
 
       );
 
@@ -398,6 +396,228 @@ ${text}`,
   }
 
 });
+
+// =====================
+// TG -> VK
+// =====================
+
+tg.on(
+'message',
+
+async (msg) => {
+
+  try {
+
+    if (
+      String(msg.chat.id)
+      !== TG_CHAT_ID
+    ) return;
+
+    // =====================
+    // DIRECT MESSAGE
+    // =====================
+
+    if (
+      msg.text &&
+      /^\d+\s+/.test(msg.text)
+    ) {
+
+      const split =
+        msg.text.split(' ');
+
+      const vkId =
+        split.shift();
+
+      const message =
+        split.join(' ');
+
+      await vk.api.messages.send({
+
+        user_id: vkId,
+        random_id: Date.now(),
+
+        message: message
+
+      });
+
+      await tg.sendMessage(
+
+        TG_CHAT_ID,
+
+`✅ ЮБОРИЛДИ
+
+👤 VK ID:
+${vkId}
+
+📨 ${message}`
+
+      );
+
+      return;
+    }
+
+    // =====================
+    // REPLY
+    // =====================
+
+    if (!msg.reply_to_message)
+      return;
+
+    const reply =
+
+      msg.reply_to_message.caption ||
+
+      msg.reply_to_message.text ||
+
+      '';
+
+    const match =
+
+      reply.match(/VK ID: (\d+)/);
+
+    if (!match) return;
+
+    const vkId = match[1];
+
+    if (!msg.text) return;
+
+    await vk.api.messages.send({
+
+      user_id: vkId,
+      random_id: Date.now(),
+
+      message: msg.text
+
+    });
+
+    await tg.sendMessage(
+
+      TG_CHAT_ID,
+
+      '✅ ЮБОРИЛДИ'
+
+    );
+
+  } catch (error) {
+
+    console.log(error);
+
+  }
+
+});
+
+// =====================
+// BUTTONS
+// =====================
+
+tg.on(
+'callback_query',
+
+async (query) => {
+
+  try {
+
+    const data =
+      query.data;
+
+    const message =
+      query.message;
+
+    // =====================
+    // ACCEPT
+    // =====================
+
+    if (
+      data.startsWith('accept_')
+    ) {
+
+      const userId =
+        data.split('_')[1];
+
+      await tg.editMessageText(
+
+`${message.text}
+
+🟢 STATUS:
+✅ ТАСДИҚЛАНДИ`,
+
+        {
+
+          chat_id:
+            message.chat.id,
+
+          message_id:
+            message.message_id
+
+        }
+
+      );
+
+      await tg.answerCallbackQuery(
+
+        query.id,
+
+        {
+          text:
+'Чек тасдиқланди'
+        }
+
+      );
+    }
+
+    // =====================
+    // REJECT
+    // =====================
+
+    if (
+      data.startsWith('reject_')
+    ) {
+
+      const userId =
+        data.split('_')[1];
+
+      await tg.editMessageText(
+
+`${message.text}
+
+🔴 STATUS:
+⛔ ТАСДИҚЛАНМАДИ`,
+
+        {
+
+          chat_id:
+            message.chat.id,
+
+          message_id:
+            message.message_id
+
+        }
+
+      );
+
+      await tg.answerCallbackQuery(
+
+        query.id,
+
+        {
+          text:
+'Чек рад этилди'
+        }
+
+      );
+    }
+
+  } catch (error) {
+
+    console.log(error);
+
+  }
+
+});
+
+// =====================
+// START
+// =====================
 
 vk.updates.start();
 
